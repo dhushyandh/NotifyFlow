@@ -1,0 +1,10 @@
+{
+  "name": "notifyflow",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["apps/api"],
+  "scripts": {
+    "dev": "npm run dev --workspace=@notifyflow/api",
+    "test": "npm test --workspace=@notifyflow/api"
+  }
+}

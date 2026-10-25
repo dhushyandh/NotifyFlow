@@ -1,0 +1,26 @@
+{
+  "name": "@notifyflow/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "test": "tsx --test",
+    "prisma:generate": "prisma generate --config prisma7.config.ts",
+    "prisma:status": "prisma migrate status --config prisma7.config.ts"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.1",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "pg": "^8.16.3",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@prisma/client": "^7.10.1",
+    "prisma": "^7.10.1",
+    "supertest": "^7.1.4",
+    "tsx": "^4.20.6"
+  }
+}
