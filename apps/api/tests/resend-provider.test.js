@@ -59,8 +59,8 @@ test("sends email and returns the provider message ID", async () => {
   const calls = [];
   const client = {
     emails: {
-      async send(payload) {
-        calls.push(payload);
+      async send(payload, options) {
+        calls.push({ payload, options });
         return { data: { id: "email_test_123" }, error: null };
       },
     },
@@ -68,14 +68,22 @@ test("sends email and returns the provider message ID", async () => {
 
   try {
     const result = await sendEmailNotification(
-      { recipient: "customer@example.com", message: "Hello" },
+      {
+        id: "notif_test_123",
+        recipient: "customer@example.com",
+        message: "Hello",
+      },
       client,
     );
 
     assert.equal(result.id, "email_test_123");
     assert.equal(calls.length, 1);
-    assert.equal(calls[0].to, "customer@example.com");
-    assert.equal(calls[0].text, "Hello");
+    assert.equal(calls[0].payload.to, "customer@example.com");
+    assert.equal(calls[0].payload.text, "Hello");
+    assert.equal(
+      calls[0].options.idempotencyKey,
+      "notifyflow/notification/notif_test_123",
+    );
   } finally {
     if (oldKey === undefined) delete process.env.RESEND_API_KEY;
     else process.env.RESEND_API_KEY = oldKey;

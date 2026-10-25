@@ -12,12 +12,17 @@ export async function sendEmailNotification(
 
   const resend = client ?? new Resend(RESEND_API_KEY);
 
-  const { data, error } = await resend.emails.send({
+const { data, error } = await resend.emails.send(
+  {
     from: EMAIL_FROM,
     to: notification.recipient,
     subject: "NotifyFlow notification",
     text: notification.message,
-  });
+  },
+  {
+    idempotencyKey: `notifyflow/notification/${notification.id}`,
+  },
+);
 
   if (error) {
     throw new Error(`Resend delivery failed: ${error.message}`);
