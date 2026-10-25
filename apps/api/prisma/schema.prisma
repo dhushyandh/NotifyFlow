@@ -1,0 +1,37 @@
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum NotificationStatus {
+  pending
+  queued
+  processing
+  sent
+  failed
+}
+
+model Notification {
+  id             String             @id @default(cuid())
+  recipient      String
+  message        String
+  status         NotificationStatus @default(pending)
+
+  attemptCount   Int                @default(0)
+  maxAttempts    Int                @default(3)
+  nextAttemptAt  DateTime?
+  lastError      String?
+  leaseToken     String?
+  leaseExpiresAt DateTime?
+
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([status, createdAt])
+  @@index([status, nextAttemptAt])
+}
