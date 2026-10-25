@@ -25,7 +25,7 @@ export async function recoverExpiredLeases(db = prisma, now = new Date()) {
           "status" = expired."targetStatus",
           "nextAttemptAt" = CASE
             WHEN expired."targetStatus" = 'queued'::"NotificationStatus"
-              THEN ${now}
+              THEN CAST(${now} AS timestamp)
             ELSE NULL
           END,
           "lastError" = CASE
@@ -56,5 +56,8 @@ export async function recoverExpiredLeases(db = prisma, now = new Date()) {
     }
 
     return counts;
+  }, {
+    maxWait: 10000,
+    timeout: 15000,
   });
 }

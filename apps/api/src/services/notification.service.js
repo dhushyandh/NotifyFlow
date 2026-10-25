@@ -82,37 +82,45 @@ export async function transitionNotificationStatus(id, targetStatus) {
   };
 }
 
+
 const LEASE_DURATION_MS = 60_000;
 
 export async function claimNextNotification() {
-  return prisma.$transaction(async (tx) => {
-    const jobs = await tx.$queryRaw`
-      SELECT "id"
-      FROM "Notification"
-      WHERE "status" = 'queued'::"NotificationStatus"
-        AND (
-          "nextAttemptAt" IS NULL
-          OR "nextAttemptAt" <= NOW()
-        )
-        AND "attemptCount" < "maxAttempts"
-      ORDER BY "createdAt" ASC
-      LIMIT 1
-      FOR UPDATE SKIP LOCKED
-    `;
+  return prisma.$transaction(
+    async (tx) => {
+      const jobs = await tx.$queryRaw`
+        SELECT "id"
+        FROM "Notification"
+        WHERE "status" = 'queued'::"NotificationStatus"
+          AND (
+            "nextAttemptAt" IS NULL
+            OR "nextAttemptAt" <= NOW()
+          )
+          AND "attemptCount" < "maxAttempts"
+        ORDER BY "createdAt" ASC
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+      `;
 
-    if (jobs.length === 0) {
-      return null;
-    }
+      if (jobs.length === 0) {
+        return null;
+      }
 
-    return tx.notification.update({
-      where: { id: jobs[0].id },
-      data: {
-        status: "processing",
-        attemptCount: { increment: 1 },
-        nextAttemptAt: null,
-        leaseToken: randomUUID(),
-        leaseExpiresAt: new Date(Date.now() + LEASE_DURATION_MS),
-      },
-    });
-  });
+      return tx.notification.update({
+        where: { id: jobs[0].id },
+        data: {
+          status: "processing",
+          attemptCount: { increment: 1 },
+          nextAttemptAt: null,
+          leaseToken: randomUUID(),
+          leaseExpiresAt: new Date(Date.now() + LEASE_DURATION_MS),
+        },
+      });
+    },
+    {
+      maxWait: 10_000,
+      timeout: 15_000,
+    },
+  );
 }
+
