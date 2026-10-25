@@ -27,3 +27,6 @@ Thumbs.db
 .windsurf/
 **/.claude/
 **/.windsurf/
+
+# Generated Prisma client
+apps/api/src/generated/
