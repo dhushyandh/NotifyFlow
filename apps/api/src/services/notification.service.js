@@ -6,6 +6,7 @@ export async function createNotification(data) {
   return prisma.notification.create({
     data: {
       recipient: data.recipient,
+      channel: data.channel ?? "sms",
       message: data.message,
       status: "queued",
     },

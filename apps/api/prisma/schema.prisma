@@ -16,11 +16,17 @@ enum NotificationStatus {
   failed
 }
 
+enum NotificationChannel {
+  sms
+  email
+}
+
 model Notification {
-  id             String             @id @default(cuid())
+  id             String               @id @default(cuid())
   recipient      String
+  channel        NotificationChannel  @default(sms)
   message        String
-  status         NotificationStatus @default(pending)
+  status         NotificationStatus   @default(pending)
 
   attemptCount   Int                @default(0)
   maxAttempts    Int                @default(3)

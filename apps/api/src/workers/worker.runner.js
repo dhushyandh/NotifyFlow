@@ -3,11 +3,17 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { prisma } from "../lib/prisma.js";
 import { runOneNotification } from "./notification.worker.js";
 import { recoverExpiredLeases } from "./recover-expired-leases.js";
+import { sendEmailNotification } from "../providers/resend.provider.js";
 
 // Placeholder until a real delivery provider is integrated.
 async function processDelivery(notification) {
-  console.log(`[worker] Processing notification ${notification.id}`);
-  throw new Error("No delivery provider configured");
+  if (notification.channel === "email") {
+    return sendEmailNotification(notification);
+  }
+
+  throw new Error(
+    "SMS delivery provider is not configured; notification was not sent",
+  );
 }
 
 const pollIntervalMs = Math.max(
