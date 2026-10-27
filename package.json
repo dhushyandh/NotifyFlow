@@ -5,6 +5,10 @@
   "workspaces": ["apps/api"],
   "scripts": {
     "dev": "npm run dev --workspace=@notifyflow/api",
-    "test": "npm test --workspace=@notifyflow/api"
+    "start": "npm run start --workspace=@notifyflow/api",
+    "worker": "npm run worker --workspace=@notifyflow/api",
+    "test": "npm test --workspace=@notifyflow/api",
+    "prisma:generate": "npm run prisma:generate --workspace=@notifyflow/api",
+    "prisma:status": "npm run prisma:status --workspace=@notifyflow/api"
   }
 }

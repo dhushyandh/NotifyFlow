@@ -1,16 +1,74 @@
 import { canTransition } from "./notification-status.js";
 import { prisma } from "../lib/prisma.js";
 import { randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 
-export async function createNotification(data) {
-  return prisma.notification.create({
-    data: {
-      recipient: data.recipient,
-      channel: data.channel ?? "sms",
-      message: data.message,
-      status: "queued",
-    },
-  });
+
+function getPayloadHash(data) {
+  return createHash("sha256")
+    .update(
+      JSON.stringify([
+        data.recipient,
+        data.channel ?? "sms",
+        data.message,
+      ]),
+    )
+    .digest("hex");
+}
+
+export async function createNotification(data, idempotencyKey) {
+  const notificationData = {
+    recipient: data.recipient,
+    channel: data.channel ?? "sms",
+    message: data.message,
+    status: "queued",
+  };
+
+  // Preserve existing behavior for requests without an idempotency key.
+  if (!idempotencyKey) {
+    const notification = await prisma.notification.create({
+      data: notificationData,
+    });
+
+    return { notification, replayed: false, conflict: false };
+  }
+
+  const payloadHash = getPayloadHash(notificationData);
+
+  try {
+    const notification = await prisma.notification.create({
+      data: {
+        ...notificationData,
+        idempotencyKey,
+        idempotencyPayloadHash: payloadHash,
+      },
+    });
+
+    return { notification, replayed: false, conflict: false };
+  } catch (error) {
+    if (error?.code !== "P2002") {
+      throw error;
+    }
+
+    // A concurrent request may have created this key already.
+    const existing = await prisma.notification.findUnique({
+      where: { idempotencyKey },
+    });
+
+    if (!existing) {
+      throw error;
+    }
+
+    if (existing.idempotencyPayloadHash !== payloadHash) {
+      return { notification: null, replayed: false, conflict: true };
+    }
+
+    return {
+      notification: existing,
+      replayed: true,
+      conflict: false,
+    };
+  }
 }
 
 export async function listNotifications({ page, limit }) {

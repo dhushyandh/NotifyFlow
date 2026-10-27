@@ -1,4 +1,4 @@
-﻿
+
 import { Router } from "express";
 import { notificationSchema } from "../schemas/notification.schema.js";
 import {
@@ -66,6 +66,48 @@ notificationRouter.post("/validate", (req, res) => {
   });
 });
 
+// Create and persist a notification with optional idempotency key.
+notificationRouter.post("/", async (req, res, next) => {
+  const data = validateNotification(req, res);
+  if (!data) return;
+
+  const header = req.get("Idempotency-Key");
+  const idempotencyKey = header?.trim();
+
+  if (
+    header !== undefined &&
+    (!idempotencyKey ||
+      header.length > 255 ||
+      idempotencyKey.length > 255 ||
+      /[\u0000-\u001F\u007F]/.test(idempotencyKey))
+  ) {
+    return res.status(400).json({
+      error: "Invalid Idempotency-Key",
+      details: "Provide a non-empty key of at most 255 characters.",
+    });
+  }
+
+  try {
+    const result = await createNotification(data, idempotencyKey);
+
+    if (result.conflict) {
+      return res.status(409).json({
+        error: "Idempotency key already used with a different payload",
+      });
+    }
+
+    return res.status(result.replayed ? 200 : 201).json({
+      message: result.replayed
+        ? "Existing notification returned"
+        : "Notification saved successfully",
+      replayed: result.replayed,
+      notification: result.notification,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 // List notifications with pagination.
 notificationRouter.get("/", async (req, res, next) => {
   const page = Number(req.query.page ?? 1);
@@ -107,23 +149,6 @@ notificationRouter.get("/:id", async (req, res, next) => {
     }
 
     return res.status(200).json({ notification });
-  } catch (error) {
-    return next(error);
-  }
-});
-
-// Create and persist a notification.
-notificationRouter.post("/", async (req, res, next) => {
-  const data = validateNotification(req, res);
-  if (!data) return;
-
-  try {
-    const notification = await createNotification(data);
-
-    return res.status(201).json({
-      message: "Notification saved successfully",
-      notification,
-    });
   } catch (error) {
     return next(error);
   }

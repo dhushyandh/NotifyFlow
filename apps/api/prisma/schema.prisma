@@ -27,6 +27,8 @@ model Notification {
   channel        NotificationChannel  @default(sms)
   message        String
   status         NotificationStatus   @default(pending)
+  idempotencyKey        String? @unique
+  idempotencyPayloadHash String?
 
   attemptCount   Int                @default(0)
   maxAttempts    Int                @default(3)

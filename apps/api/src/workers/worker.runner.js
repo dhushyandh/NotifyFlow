@@ -22,28 +22,22 @@ const pollIntervalMs = Math.max(
 );
 
 let stopping = false;
-let shutdownPromise;
+const shutdownController = new AbortController();
+const shutdownSignal = shutdownController.signal;
 
-function shutdown(signal) {
-  if (shutdownPromise) {
+function requestShutdown(signal) {
+  if (stopping) {
     console.warn("[worker] Shutdown already in progress");
-    return shutdownPromise;
+    return;
   }
 
   stopping = true;
   console.log(`[worker] ${signal} received; finishing current iteration`);
-
-  shutdownPromise = Promise.resolve();
-  return shutdownPromise;
+  shutdownController.abort();
 }
 
-process.once("SIGINT", () => {
-  void shutdown("SIGINT");
-});
-
-process.once("SIGTERM", () => {
-  void shutdown("SIGTERM");
-});
+process.once("SIGINT", () => requestShutdown("SIGINT"));
+process.once("SIGTERM", () => requestShutdown("SIGTERM"));
 
 async function main() {
   console.log(`[worker] Started; polling every ${pollIntervalMs}ms`);
@@ -79,19 +73,6 @@ async function main() {
     }
   }
 }
-
-const shutdownController = new AbortController();
-const shutdownSignal = shutdownController.signal;
-
-function requestShutdown(signal) {
-  void shutdown(signal);
-  shutdownController.abort();
-}
-
-process.removeAllListeners("SIGINT");
-process.removeAllListeners("SIGTERM");
-process.once("SIGINT", () => requestShutdown("SIGINT"));
-process.once("SIGTERM", () => requestShutdown("SIGTERM"));
 
 try {
   await main();

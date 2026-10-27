@@ -24,6 +24,5 @@
     "prisma": "^7.10.1",
     "supertest": "^7.1.4",
     "tsx": "^4.20.6"
-  },
-  "scripts:worker": "tsx src/workers/worker.runner.js"
+  }
 }

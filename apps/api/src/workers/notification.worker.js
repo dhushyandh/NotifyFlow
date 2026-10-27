@@ -89,7 +89,7 @@ export async function processNotification(
     outcome: updated.count === 1 ? "processed" : "state_changed",
     id: notification.id,
   };
-} // ← This closing brace was missing!
+}
 
 export async function runOneNotification(
   processor,
