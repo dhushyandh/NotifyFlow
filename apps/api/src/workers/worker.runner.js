@@ -1,3 +1,4 @@
+
 import "dotenv/config";
 import { setTimeout as sleep } from "node:timers/promises";
 import { prisma } from "../lib/prisma.js";
@@ -5,7 +6,6 @@ import { runOneNotification } from "./notification.worker.js";
 import { recoverExpiredLeases } from "./recover-expired-leases.js";
 import { sendEmailNotification } from "../providers/resend.provider.js";
 
-// Placeholder until a real delivery provider is integrated.
 async function processDelivery(notification) {
   if (notification.channel === "email") {
     return sendEmailNotification(notification);
@@ -22,6 +22,28 @@ const pollIntervalMs = Math.max(
 );
 
 let stopping = false;
+let shutdownPromise;
+
+function shutdown(signal) {
+  if (shutdownPromise) {
+    console.warn("[worker] Shutdown already in progress");
+    return shutdownPromise;
+  }
+
+  stopping = true;
+  console.log(`[worker] ${signal} received; finishing current iteration`);
+
+  shutdownPromise = Promise.resolve();
+  return shutdownPromise;
+}
+
+process.once("SIGINT", () => {
+  void shutdown("SIGINT");
+});
+
+process.once("SIGTERM", () => {
+  void shutdown("SIGTERM");
+});
 
 async function main() {
   console.log(`[worker] Started; polling every ${pollIntervalMs}ms`);
@@ -34,33 +56,46 @@ async function main() {
         console.log("[worker] Recovered expired leases:", recovery);
       }
 
+      // If shutdown starts during recovery, don't claim another job.
+      if (stopping) break;
+
       const result = await runOneNotification(processDelivery);
 
       if (result.outcome !== "idle") {
         console.log("[worker] Job result:", result);
       }
 
-      if (result.outcome === "idle") {
-        await sleep(pollIntervalMs);
+      if (result.outcome === "idle" && !stopping) {
+        await sleep(pollIntervalMs, undefined, { signal: shutdownSignal });
       }
     } catch (error) {
+      if (stopping && error?.name === "AbortError") break;
+
       console.error("[worker] Loop error:", error);
-      await sleep(pollIntervalMs);
+
+      if (!stopping) {
+        await sleep(pollIntervalMs);
+      }
     }
   }
 }
 
-function shutdown(signal) {
-  console.log(`[worker] ${signal} received; shutting down`);
-  stopping = true;
+const shutdownController = new AbortController();
+const shutdownSignal = shutdownController.signal;
+
+function requestShutdown(signal) {
+  void shutdown(signal);
+  shutdownController.abort();
 }
 
-process.once("SIGINT", shutdown);
-process.once("SIGTERM", shutdown);
+process.removeAllListeners("SIGINT");
+process.removeAllListeners("SIGTERM");
+process.once("SIGINT", () => requestShutdown("SIGINT"));
+process.once("SIGTERM", () => requestShutdown("SIGTERM"));
 
 try {
   await main();
 } finally {
   await prisma.$disconnect();
-  console.log("[worker] Stopped");
+  console.log("[worker] Stopped; database disconnected");
 }
