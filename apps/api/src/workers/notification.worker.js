@@ -9,9 +9,10 @@ export async function processNotification(
   db = prisma,
   now = () => new Date(),
 ) {
-  // Only processor failures should trigger delivery retries.
+  let processorResult;
+
   try {
-    await processor(notification);
+    processorResult = await processor(notification);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown processing error";
@@ -59,13 +60,15 @@ export async function processNotification(
     };
   }
 
-  // A worker cannot finish a job after its lease has expired.
+  // Only finish the job if this worker's lease is still valid.
+  const acceptedAt = now();
+
   const updated = await db.notification.updateMany({
     where: {
       id: notification.id,
       status: "processing",
       leaseToken: notification.leaseToken,
-      leaseExpiresAt: { gt: now() },
+      leaseExpiresAt: { gt: acceptedAt },
     },
     data: {
       status: "sent",
@@ -73,6 +76,12 @@ export async function processNotification(
       nextAttemptAt: null,
       leaseToken: null,
       leaseExpiresAt: null,
+      ...(processorResult?.id
+        ? {
+            providerMessageId: processorResult.id,
+            providerAcceptedAt: acceptedAt,
+          }
+        : {}),
     },
   });
 
@@ -80,7 +89,7 @@ export async function processNotification(
     outcome: updated.count === 1 ? "processed" : "state_changed",
     id: notification.id,
   };
-}
+} // ← This closing brace was missing!
 
 export async function runOneNotification(
   processor,

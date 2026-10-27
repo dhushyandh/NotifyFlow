@@ -33,6 +33,8 @@ model Notification {
   nextAttemptAt  DateTime?
   lastError      String?
   leaseToken     String?
+  providerMessageId String?
+  providerAcceptedAt DateTime?
   leaseExpiresAt DateTime?
 
   createdAt      DateTime           @default(now())

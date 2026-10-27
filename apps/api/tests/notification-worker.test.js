@@ -106,3 +106,24 @@ test("worker reports a state change when its conditional update loses", async ()
 
   assert.equal(result.outcome, "state_changed");
 });
+test("stores provider acceptance details after successful delivery", async () => {
+  const db = createFakeDb();
+  const acceptedAt = new Date("2026-10-25T12:00:00.000Z");
+
+  const result = await processNotification(
+    createJob(),
+    async () => ({ id: "email_provider_123" }),
+    db,
+    () => acceptedAt,
+  );
+
+  assert.equal(result.outcome, "processed");
+  assert.equal(
+    db.updates[0].data.providerMessageId,
+    "email_provider_123",
+  );
+  assert.equal(
+    db.updates[0].data.providerAcceptedAt,
+    acceptedAt,
+  );
+});
